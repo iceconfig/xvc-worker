@@ -14,6 +14,7 @@
 
 import { handleSubtitlesRequest } from './controllers/youtube';
 import { handleStreamRequest } from './controllers/stream';
+import { handleAnalyzeRequest } from './controllers/analyze';
 
 /**
  * Worker 主入口处理函数
@@ -29,6 +30,9 @@ export default {
 			// DeepSeek AI 分析端点
 			case '/deepseek':
 				return handleStreamRequest(request, env.DEEPSEEK_API_KEY);
+			// 合并端点：字幕提取 + AI 分析
+			case '/analyze':
+				return handleAnalyzeRequest(request, env.DEEPSEEK_API_KEY);
 			// 未知路径返回 404
 			default:
 				return new Response('Not Found', { status: 404 });

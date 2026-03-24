@@ -15,7 +15,8 @@ export interface SubtitleEntry {
 export interface SubtitleResponse {
   videoId: string;            // 视频 ID
   language: string;           // 字幕语言
-  subtitles: SubtitleEntry[]; // 字幕条目列表
+  segments: SubtitleEntry[]; // 字幕条目列表
+  text: string;               // 字幕全文
 }
 
 /**

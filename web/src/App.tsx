@@ -21,28 +21,14 @@ export default function App() {
     }
 
     try {
-      const subtitlesRes = await fetch(`/subtitles?url=${encodeURIComponent(youtubeUrl)}`)
+      const analyzeRes = await fetch(`/analyze?url=${encodeURIComponent(youtubeUrl)}`)
 
-      if (!subtitlesRes.ok) {
-        const errorData = await subtitlesRes.json()
-        throw new Error(errorData.error || `Failed to fetch subtitles: ${subtitlesRes.status}`)
+      if (!analyzeRes.ok) {
+        const errorData = await analyzeRes.json()
+        throw new Error(errorData.error || `Request failed: ${analyzeRes.status}`)
       }
 
-      const subtitlesData = await subtitlesRes.json()
-      
-      const deepSeekRes = await fetch('/deepseek', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: subtitlesData.text }),
-      })
-
-      if (!deepSeekRes.ok) {
-        throw new Error(`Request failed: ${deepSeekRes.status} ${deepSeekRes.statusText}`)
-      }
-
-      const reader = deepSeekRes.body?.getReader()
+      const reader = analyzeRes.body?.getReader()
       if (!reader) {
         throw new Error('Response body is empty')
       }

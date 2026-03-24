@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { extractVideoId } from '../src/controllers/youtube';
+import { extractVideoId } from '../src/utils/url';
 
 describe('extractVideoId', () => {
   it('extracts video ID from youtube.com/watch?v=VIDEO_ID', () => {
