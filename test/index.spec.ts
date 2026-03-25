@@ -29,59 +29,74 @@ describe('Worker Routing', () => {
     });
   });
 
-  describe('POST /deepseek', () => {
+  describe('POST /analyze', () => {
     it('returns 405 for non-POST methods', async () => {
-      const request = new Request('http://example.com/deepseek', { method: 'GET' });
+      const request = new Request('http://example.com/analyze', { method: 'GET' });
       const response = await SELF.fetch(request);
       expect(response.status).toBe(405);
     });
 
-    it('returns 400 when prompt is missing', async () => {
-      const request = new Request('http://example.com/deepseek', {
+    it('returns 400 when url is missing in request body', async () => {
+      const request = new Request('http://example.com/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
       });
       const response = await SELF.fetch(request);
       expect(response.status).toBe(400);
+      const body = await response.json() as { error: string };
+      expect(body.error).toContain('url');
     });
 
-    it('returns 500 when API key is not configured', async () => {
-      const request = new Request('http://example.com/deepseek', {
+    it('returns 400 when YouTube URL is invalid', async () => {
+      const request = new Request('http://example.com/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: 'test prompt' }),
+        body: JSON.stringify({ url: 'invalid-url' }),
       });
-      // Pass empty string to simulate missing API key
-      const response = await worker.fetch(request, { DEEPSEEK_API_KEY: '', GEMINI_API_KEY: '' });
-      expect(response.status).toBe(500);
+      const response = await SELF.fetch(request);
+      expect(response.status).toBe(400);
+      const body = await response.json() as { error: string };
+      expect(body.error).toContain('Invalid YouTube URL');
     });
 
-    it('accepts valid POST request with prompt', async () => {
-      const request = new Request('http://example.com/deepseek', {
+    it('returns 202 with task_id and ws_url for valid request', async () => {
+      const request = new Request('http://example.com/analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt: 'test prompt' }),
+        body: JSON.stringify({ url: 'https://www.youtube.com/watch?v=testId' }),
       });
-      // With a fake API key, the request will fail at API call
-      // but we verify the routing and validation works
-      const response = await worker.fetch(request, { DEEPSEEK_API_KEY: 'fake-key', GEMINI_API_KEY: '' });
-      // Either streaming starts (200) or API call fails (500)
-      expect(response.status).toBeOneOf([200, 500]);
+      const response = await SELF.fetch(request);
+      expect(response.status).toBe(202);
+      const body = await response.json() as { task_id: string; ws_url: string; status_url: string };
+      expect(body.task_id).toBeDefined();
+      expect(body.ws_url).toContain('/ws/');
+      expect(body.status_url).toContain('/task/');
     });
   });
 
-  describe('404 handling', () => {
-    it('returns 404 for unknown routes', async () => {
-      const request = new Request('http://example.com/unknown');
+  describe('GET /task/:id', () => {
+    it('returns 200 with default status for new task', async () => {
+      // Note: Durable Objects create new instances on demand,
+      // so a non-existent task will return default status
+      const request = new Request('http://example.com/task/new-task-id');
       const response = await SELF.fetch(request);
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(200);
+      const body = await response.json() as { status: string; progress: number };
+      expect(body.status).toBe('pending');
+      expect(body.progress).toBe(0);
     });
+  });
 
-    it('returns 404 for API routes that do not exist', async () => {
-      const request = new Request('http://example.com/api/nonexistent');
+  describe('GET /ws/:id', () => {
+    it('returns 101 for WebSocket upgrade with proper headers', async () => {
+      const request = new Request('http://example.com/ws/test-id', {
+        headers: {
+          Upgrade: 'websocket',
+        },
+      });
       const response = await SELF.fetch(request);
-      expect(response.status).toBe(404);
+      expect(response.status).toBe(101);
     });
   });
 });

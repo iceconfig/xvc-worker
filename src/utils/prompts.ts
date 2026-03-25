@@ -51,59 +51,6 @@ export function splitSubtitles(
 }
 
 /**
- * 为分段生成摘要的提示词（旧方法，保留用于兼容）
- * @param segment - 字幕段
- * @param segmentIndex - 段索引
- * @param totalSegments - 总段数
- * @returns 摘要提示词
- */
-export function buildSegmentSummaryPrompt(
-  segment: SubtitleEntry[],
-  segmentIndex: number,
-  totalSegments: number
-): string {
-  const segmentText = segment.map((e) => e.text).join(' ');
-
-  return `这是视频字幕的第 ${segmentIndex + 1}/${totalSegments} 部分。请提取以下关键信息：
-
-1. **主要话题**：这部分讨论的核心主题是什么
-2. **关键数据**：任何提到的数字、统计数据、技术指标
-3. **重要观点**：发言人的核心论点和结论
-4. **说话者标识**：如果有明确的人名或角色，请记录
-
-字幕内容：
-${segmentText}
-
-请用简洁的中文输出结构化摘要，保持原始术语和数据的准确性。`;
-}
-
-/**
- * 为分段直接生成稿件的提示词
- * 保留原始对话的细节和信息，仅做一次处理
- * @param segment - 字幕段
- * @param segmentIndex - 段索引
- * @param totalSegments - 总段数
- * @returns 稿件提示词
- */
-export function buildSegmentDraftPrompt(
-  segment: SubtitleEntry[],
-  segmentIndex: number,
-  totalSegments: number
-): string {
-  const segmentText = segment.map((e) => e.text).join(' ');
-
-  return `这是视频字幕的第 ${segmentIndex + 1}/${totalSegments} 部分。请根据以下字幕内容，整理成对话稿件的一个片段。
-
-要求：
-- 保持原始对话的细节和信息
-- 保留关键数据和技术术语
-- 输出使用中文
-
-字幕内容：
-${segmentText}`;
-}
-
-/**
  * 为分段生成带重叠上下文的稿件提示词
  * 明确标识重叠部分，指导 AI 自然衔接前文
  * @param currentSegment - 当前段字幕
@@ -149,28 +96,6 @@ ${currentText}
 - 注意与前文的自然衔接
 - 保留关键数据和技术术语
 - 输出使用中文`;
-}
-
-/**
- * 简单拼接所有稿件片段
- * @param drafts - 各分段的稿件列表
- * @returns 拼接后的完整稿件
- */
-export function joinDrafts(drafts: string[]): string {
-  return drafts.join('\n\n---\n\n');
-}
-
-/**
- * 整合所有分段摘要生成最终稿件的提示词
- * @param summaries - 各分段的摘要列表
- * @returns 最终稿件提示词
- */
-export function buildFinalPrompt(summaries: string[]): string {
-  return `以下是视频各部分的摘要，请整合成一篇完整的对话稿件：
-
-${summaries.map((s, i) => `## 第 ${i + 1} 部分\n${s}`).join('\n\n')}
-
-请根据上述摘要，整理成结构清晰、对话自然的稿件。保持关键数据和术语的准确性，输出使用中文。`;
 }
 
 /**

@@ -1,9 +1,5 @@
 import type { LLMStreamOpts, LLMStreamResponse } from '../types/llm';
-import {
-  ANALYSIS_SYSTEM_INSTRUCTION,
-  SEGMENT_SYSTEM_INSTRUCTION,
-} from '../prompts/system-prompts';
-import { DEEPSEEK_MAX_OUTPUT_TOKENS } from '../config/constants';
+import { ANALYSIS_SYSTEM_INSTRUCTION } from '../prompts/system-prompts';
 
 /**
  * 流式调用 DeepSeek AI API
@@ -104,59 +100,8 @@ export async function* streamDeepSeek(
 }
 
 /**
- * 非流式调用 DeepSeek AI API，获取完整响应
- * 用于分段摘要处理
- * @param prompt - 发送给 AI 的提示词
- * @param apiKey - DeepSeek API 密钥
- * @param opts - 可选配置
- * @param useSegmentInstruction - 是否使用分段摘要指令（默认 false）
- * @returns AI 的完整响应文本
- */
-export async function getCompletion(
-  prompt: string,
-  apiKey: string,
-  opts: LLMStreamOpts = {},
-  useSegmentInstruction: boolean = false
-): Promise<string> {
-  const model = opts.model ?? 'deepseek-chat';
-  const url = 'https://api.deepseek.com/v1/chat/completions';
-
-  console.log(`[deepseek] 请求 API: ${model}`);
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: model,
-      messages: [
-        {
-          role: 'system',
-          content: useSegmentInstruction ? SEGMENT_SYSTEM_INSTRUCTION : ANALYSIS_SYSTEM_INSTRUCTION,
-        },
-        { role: 'user', content: prompt },
-      ],
-      stream: false,
-      temperature: opts.temperature,
-      max_tokens: opts.maxOutputTokens ?? DEEPSEEK_MAX_OUTPUT_TOKENS,
-    }),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    console.error(`[deepseek] API 错误：${response.status} ${response.statusText}`);
-    throw new Error(`DeepSeek API error: ${response.status} ${response.statusText} - ${error}`);
-  }
-
-  const data = (await response.json()) as { choices?: [{ message?: { content?: string } }] };
-  return data.choices?.[0]?.message?.content ?? '';
-}
-
-/**
  * 流式调用 DeepSeek AI API 并返回完整响应
- * 与 streamDeepSeek 类似，但使用 SEGMENT_SYSTEM_INSTRUCTION 指令
+ * 与 streamDeepSeek 类似，使用 ANALYSIS_SYSTEM_INSTRUCTION 指令
  * @param prompt - 发送给 AI 的提示词
  * @param apiKey - DeepSeek API 密钥
  * @param opts - 可选配置
