@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { marked } from 'marked'
 
 interface TaskProgress {
   type: 'progress'
@@ -37,6 +38,7 @@ export default function App() {
   const responseRef = useRef<string>('')
   const responseDivRef = useRef<HTMLDivElement>(null)
   const wsRef = useRef<WebSocket | null>(null)
+  const bufferRef = useRef<string>('')  // 未渲染的 markdown
 
   // 清理 WebSocket 连接
   useEffect(() => {
@@ -46,6 +48,17 @@ export default function App() {
       }
     }
   }, [])
+
+  // 渲染单个 chunk
+  const renderChunk = (markdown: string) => {
+    const div = document.createElement('div')
+    div.innerHTML = marked.parse(markdown) as string
+    responseDivRef.current?.appendChild(div)
+    // 自动滚动到底部
+    if (responseDivRef.current) {
+      responseDivRef.current.scrollTop = responseDivRef.current.scrollHeight
+    }
+  }
 
   const handleSend = async () => {
     if (!youtubeUrl.trim()) {
@@ -58,8 +71,9 @@ export default function App() {
     setProgress(0)
     setStage('')
     responseRef.current = ''
+    bufferRef.current = ''  // 清空 buffer
     if (responseDivRef.current) {
-      responseDivRef.current.textContent = ''
+      responseDivRef.current.innerHTML = ''  // 清空容器
     }
 
     try {
@@ -96,12 +110,23 @@ export default function App() {
           setStage(data.stage)
           console.log(`[Progress] ${data.progress}% - ${data.stage}`)
         } else if (data.type === 'chunk') {
-          // 流式渲染文本
-          responseRef.current += data.text
-          if (responseDivRef.current) {
-            responseDivRef.current.textContent = responseRef.current
+          // 流式渲染 Markdown
+          bufferRef.current += data.text
+          const parts = bufferRef.current.split('\n\n')
+          // 保留最后一段（可能不完整）
+          bufferRef.current = parts.pop() || ''
+          // 渲染完整的段落
+          for (const part of parts) {
+            if (part.trim()) {
+              renderChunk(part + '\n\n')
+            }
           }
         } else if (data.type === 'done') {
+          // 任务完成 - 渲染剩余的 buffer
+          if (bufferRef.current.trim()) {
+            renderChunk(bufferRef.current)
+            bufferRef.current = ''
+          }
           // 任务完成
           console.log('[WebSocket] 任务完成')
           setStage('Completed')
@@ -196,9 +221,9 @@ export default function App() {
             border: '1px solid #ccc',
             padding: '10px',
             borderRadius: '4px',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
             minHeight: '20px',
+            maxHeight: '500px',
+            overflowY: 'auto',
           }}
         />
       </div>

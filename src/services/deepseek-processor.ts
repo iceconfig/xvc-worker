@@ -22,6 +22,9 @@ export async function* processLongSubtitles(
 
   console.log(`[deepseek] 分段处理：共 ${segments.length} 段（重叠条目数：${SEGMENT_OVERLAP_ENTRIES}）`);
 
+  // 累积上一段的输出，用于下一段的参考
+  let previousOutput = '';
+
   // 逐段生成稿件并流式返回
   for (let i = 0; i < segments.length; i++) {
     const segment = segments[i];
@@ -38,7 +41,7 @@ export async function* processLongSubtitles(
 
     if (i === 0) {
       // 第一段，没有重叠上下文
-      prompt = buildSegmentDraftPromptWithOverlap(segment, null, i, segments.length);
+      prompt = buildSegmentDraftPromptWithOverlap(segment, null, null, i, segments.length);
     } else {
       // 后续段：需要确定重叠部分
       // 重叠部分是从段首开始的 SEGMENT_OVERLAP_ENTRIES 条字幕
@@ -48,17 +51,26 @@ export async function* processLongSubtitles(
 
       if (currentSegment.length > 0) {
         // 有非重叠的当前内容
-        prompt = buildSegmentDraftPromptWithOverlap(currentSegment, overlapSegment, i, segments.length);
+        prompt = buildSegmentDraftPromptWithOverlap(currentSegment, overlapSegment, previousOutput, i, segments.length);
       } else {
         // 整个段都是重叠部分（边界情况）
-        prompt = buildSegmentDraftPromptWithOverlap(segment, overlapSegment, i, segments.length);
+        prompt = buildSegmentDraftPromptWithOverlap(segment, overlapSegment, previousOutput, i, segments.length);
       }
     }
 
+    // 累积当前段的输出
+    let currentOutput = '';
+
     // 流式返回当前段的稿件内容
     for await (const chunk of streamDeepSeekWithResponse(prompt, apiKey)) {
+      if (chunk.text) {
+        currentOutput += chunk.text;
+      }
       yield chunk;
     }
+
+    // 更新上一段输出
+    previousOutput = currentOutput;
 
     console.log(
       `[deepseek] 第 ${i + 1} 段稿件完成`

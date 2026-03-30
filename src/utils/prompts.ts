@@ -52,9 +52,10 @@ export function splitSubtitles(
 
 /**
  * 为分段生成带重叠上下文的稿件提示词
- * 明确标识重叠部分，指导 AI 自然衔接前文
+ * 明确标识重叠部分和上一段输出，指导 AI 自然衔接前文并避免重复
  * @param currentSegment - 当前段字幕
  * @param overlapSegment - 重叠部分（前一段的末尾），第一段为 null
+ * @param previousOutput - 上一段的稿件输出，第一段为 null
  * @param segmentIndex - 段索引（从 0 开始）
  * @param totalSegments - 总段数
  * @returns 稿件提示词
@@ -62,6 +63,7 @@ export function splitSubtitles(
 export function buildSegmentDraftPromptWithOverlap(
   currentSegment: SubtitleEntry[],
   overlapSegment: SubtitleEntry[] | null,
+  previousOutput: string | null,
   segmentIndex: number,
   totalSegments: number
 ): string {
@@ -69,11 +71,13 @@ export function buildSegmentDraftPromptWithOverlap(
 
   if (!overlapSegment || segmentIndex === 0) {
     // 第一段，没有重叠部分
-    return `这是视频字幕的第 ${segmentIndex + 1}/${totalSegments} 部分。请根据以下字幕内容，整理成对话稿件的一个片段。
+    return `这是视频字幕的第 ${segmentIndex + 1}/${totalSegments} 部分。请根据以下字幕内容，整理成简洁的对话稿件片段。
 
 要求：
-- 保持原始对话的细节和信息
-- 保留关键数据和技术术语
+- 只保留核心观点，大幅精简冗余内容
+- 输出篇幅控制在原文的 30% 以内
+- 仅保留关键数据和技术术语
+- 避免逐字翻译，用简洁语言复述
 - 输出使用中文
 
 字幕内容：
@@ -83,19 +87,39 @@ ${currentText}`;
   // 有重叠部分，明确标识
   const overlapText = overlapSegment.map((e) => e.text).join(' ');
 
-  return `这是视频字幕的第 ${segmentIndex + 1}/${totalSegments} 部分。请根据以下字幕内容，整理成对话稿件的一个片段。
+  // 构建提示词，包含上一段输出作为参考
+  const parts: string[] = [
+    `这是视频字幕的第 ${segmentIndex + 1}/${totalSegments} 部分。请根据以下字幕内容，整理成简洁的对话稿件片段。`,
+  ];
 
-【前文参考】以下是上一部分的末尾内容，供你参考上下文（不需要处理这部分）：
+  if (previousOutput) {
+    parts.push(`
+【上一段输出】以下是上一部分的稿件内容（你已经输出过的内容，不要重复）：
+${previousOutput}
+`);
+  }
+
+  if (overlapText) {
+    parts.push(`
+【前文参考】以下是上一部分的末尾字幕，供你参考上下文（不需要处理这部分）：
 ${overlapText}
+`);
+  }
 
-【当前内容】请根据以下字幕内容，整理成对话稿件的一个片段：
+  parts.push(`
+【当前内容】请根据以下字幕内容，整理成简洁的对话稿件片段：
 ${currentText}
 
 要求：
-- 保持原始对话的细节和信息
-- 注意与前文的自然衔接
-- 保留关键数据和技术术语
-- 输出使用中文`;
+- 只保留核心观点，大幅精简冗余内容
+- 输出篇幅控制在原文的 30% 以内
+- 注意与上一段输出的自然衔接，保持风格一致
+- 不要重复上一段已经输出过的内容
+- 仅保留关键数据和技术术语
+- 避免逐字翻译，用简洁语言复述
+- 输出使用中文`);
+
+  return parts.join('');
 }
 
 /**
